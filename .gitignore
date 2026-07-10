@@ -10,6 +10,7 @@ solar_monitor/__pycache__/
 
 # Ignore raw documentation, text dumps, and PDFs containing sample keys
 solar_monitor/*.txt
+!solar_monitor/requirements.txt
 solar_monitor/*.pdf
 
 # Ignore other local workspace files
