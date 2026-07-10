@@ -1,0 +1,51 @@
+name: Update Solar Dashboard
+
+on:
+  schedule:
+    # 11:00 AM and 16:00 (4:00 PM) Brasilia time (UTC-3)
+    # Conversion:
+    # 11:00 BRT = 14:00 UTC
+    # 16:00 BRT = 19:00 UTC
+    - cron: '0 14,19 * * *'
+  workflow_dispatch:
+    # Allows manual trigger from the GitHub Actions UI tab
+
+permissions:
+  contents: write
+
+jobs:
+  update-dashboard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r solar_monitor/requirements.txt
+
+      - name: Decrypt config file
+        run: |
+          python solar_monitor/crypt_helper.py decrypt "${{ secrets.CONFIG_DECRYPT_KEY }}"
+
+      - name: Run Monitor Update
+        run: |
+          cd solar_monitor
+          python monitor.py --force
+
+      - name: Encrypt config file
+        run: |
+          python solar_monitor/crypt_helper.py encrypt "${{ secrets.CONFIG_DECRYPT_KEY }}"
+
+      - name: Commit and push updated files
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add solar_monitor/config.json.enc solar_monitor/dashboard.html index.html
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update solar dashboard [skip ci]" && git push)

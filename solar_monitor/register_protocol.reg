@@ -1,0 +1,12 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_CURRENT_USER\Software\Classes\arsolar]
+@="URL:ARSolar Protocol"
+"URL Protocol"=""
+
+[HKEY_CURRENT_USER\Software\Classes\arsolar\shell]
+
+[HKEY_CURRENT_USER\Software\Classes\arsolar\shell\open]
+
+[HKEY_CURRENT_USER\Software\Classes\arsolar\shell\open\command]
+@="cmd /c \"\\\"g:\\Meu Drive\\MP\\ProjetoMaker\\ARSolar\\solar_monitor\\arsolar_refresh.bat\\\"\""

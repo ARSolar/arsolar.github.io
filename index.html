@@ -1,100 +1,36 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ARSolar Engenharia | Sua Energia, Nossa Expertise</title>
-    <link rel="stylesheet" href="style.css"> 
+  <meta charset="utf-8">
+  <title>Direcionando para o Monitor Solar...</title>
+  <meta http-equiv="refresh" content="0; url=solar_monitor/dashboard.html">
+  <style>
+    body {
+      background-color: #0b0f19;
+      color: #94a3b8;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .loader-box {
+      text-align: center;
+      background: rgba(255, 255, 255, 0.03);
+      padding: 30px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+  </style>
+  <script>
+    window.location.href = "solar_monitor/dashboard.html";
+  </script>
 </head>
 <body>
-
-    <a href="https://wa.me/5583999400786" target="_blank" class="whatsapp-button">
-        <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp">
-    </a>
-
-    <nav>
-        <ul>
-            <li><a href="#home">Home</a></li>
-            <li><a href="#portfolio">Portfólio</a></li>
-            <li><a href="#orcamento">Orçamento</a></li>
-            <li><a href="#contato">Contato</a></li>
-            <li><a href="#checklist">Checklist</a></li>
-        </ul>
-    </nav>
-
-    <section id="home">
-        <h1>ARSolar Engenharia</h1>
-        <h2>Sua energia, nossa expertise.</h2>
-        <p>
-            Venda de energia solar, projetos e homologação, engenharia para empresas, e assistência técnica para inversores.
-        </p>
-    </section>
-
-    <section id="portfolio">
-        <h2>Nossos Projetos</h2>
-        <p>Confira alguns de nossos trabalhos e siga-nos no Instagram para mais.</p>
-        <a href="https://instagram.com/seu-instagram" target="_blank">Ver mais no Instagram</a>
-    </section>
-
-    <section id="orcamento">
-        <h2>Faça seu Orçamento</h2>
-        <p>Preencha os dados abaixo e entraremos em contato com você o mais rápido possível.</p>
-        <form>
-            <label for="nome">Nome Completo:</label>
-            <input type="text" id="nome" name="nome" required>
-
-            <label for="email">E-mail (opcional):</label>
-            <input type="email" id="email" name="email">
-
-            <label for="telefone">Telefone:</label>
-            <input type="tel" id="telefone" name="telefone" required>
-
-            <label for="consumo">Média de Consumo (kWh):</label>
-            <input type="number" id="consumo" name="consumo" required>
-
-            <label for="cep">CEP:</label>
-            <input type="text" id="cep" name="cep" required>
-
-            <label for="local">Tipo de Local de Instalação:</label>
-            <select id="local" name="local">
-                <option value="colonial">Colonial</option>
-                <option value="tradicional">Tradicional</option>
-                <option value="fibrocimento">Fibrocimento</option>
-                <option value="laje">Laje Plana</option>
-                <option value="solo">Estrutura de Solo</option>
-            </select>
-            <button type="submit">Enviar Orçamento</button>
-        </form>
-    </section>
-
-    <section id="contato">
-        <h2>Fale Conosco</h2>
-        <p>
-            Email: arsolarengenharia@gmail.com <br>
-            Telefone: (83) 9 9940-0786
-        </p>
-        <form>
-            <label for="nome-contato">Seu Nome:</label>
-            <input type="text" id="nome-contato" name="nome-contato" required>
-
-            <label for="email-contato">Seu E-mail:</label>
-            <input type="email" id="email-contato" name="email-contato" required>
-
-            <label for="mensagem">Sua Mensagem:</label>
-            <textarea id="mensagem" name="mensagem" rows="4" required></textarea>
-
-            <button type="submit">Enviar Mensagem</button>
-        </form>
-    </section>
-
-    <section id="checklist">
-        <h2>Checklist Fotovoltaico</h2>
-        <p>
-            Se você é uma empresa parceira, acesse nosso checklist para enviar as informações do seu cliente.
-        </p>
-        <a href="LINK_DO_SEU_FORMS_DO_GOOGLE" target="_blank" class="checklist-button">Acessar Checklist</a>
-    </section>
-
-    <script src="script.js"></script>
+  <div class="loader-box">
+    <h2>☀️ ARSolar Cockpit</h2>
+    <p>Redirecionando para o painel de monitoramento...</p>
+  </div>
 </body>
 </html>

@@ -1,0 +1,27 @@
+# Ignore local config with plain secrets
+solar_monitor/config.json
+
+# Ignore logs
+*.log
+
+# Ignore python caches
+__pycache__/
+solar_monitor/__pycache__/
+
+# Ignore raw documentation, text dumps, and PDFs containing sample keys
+solar_monitor/*.txt
+solar_monitor/*.pdf
+
+# Ignore other local workspace files
+1167 - PB PRIME (RJ) - VPOWER - SG75 - 160AESOLAR TME-132BDS/
+backup_instagram.py
+extract_chrome_cookies.py
+extract_temp_cookies.py
+inspect_section_breaks.py
+instagram posts/
+proposta-800424-67c075.docx
+transform_proposal.py
+whatsapp_crm_extension/
+Proposta_ARSolar_Banco_Capacitores.docx
+RS_PROP.2026_N.º_060 - B. Capacitores 150 kVAr - Centro Superior de Ciência da Saúde (1).pdf
+Aiswei api-Business-singapore oficial.pdf
