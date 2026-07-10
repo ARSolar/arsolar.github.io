@@ -9,6 +9,12 @@ from tkinter import messagebox
 from solis_api import SolisCloudAPI
 from aiswei_api import AisweiSolarAPI
 
+from datetime import timezone, timedelta
+def get_local_now():
+    # Returns the current time in Brasilia (UTC-3) as a timezone-naive datetime
+    return (datetime.now(timezone.utc) - timedelta(hours=3)).replace(tzinfo=None)
+
+
 # File paths
 DIR_PATH = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE = os.path.join(DIR_PATH, "config.json")
@@ -88,7 +94,7 @@ def process_telegram_alerts(config, plants_results, active_alerts):
     try:
         # Don't send Telegram notifications outside active daylight hours (07:30 to 17:30)
         # since plants naturally go offline/low production when there is no sun.
-        now = datetime.now()
+        now = get_local_now()
         current_time_float = now.hour + now.minute / 60.0
         if not (7.5 <= current_time_float <= 17.5):
             print("Fora do horário de sol ativo (07:30 às 17:30). Notificações do Telegram suspensas.")
@@ -166,7 +172,7 @@ def generate_dashboard(config_data, plants_data, active_alerts, api_error=None, 
     serialized_alerts  = json.dumps(active_alerts,  ensure_ascii=False)
     serialized_api_err = json.dumps(api_error,       ensure_ascii=False)
     serialized_weather = json.dumps(weather_data,    ensure_ascii=False)
-    last_update_str    = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    last_update_str    = get_local_now().strftime("%d/%m/%Y %H:%M:%S")
 
     html_template = """<!DOCTYPE html>
 <html lang="pt-BR">
@@ -1690,9 +1696,10 @@ def run_mock_mode(config, force_run=False):
     import random
     from datetime import datetime, timedelta
     
+
     print("\n[DEMO] Modo de Demonstração (Simulação de Dados) Ativo!")
     
-    now = datetime.now()
+    now = get_local_now()
     current_hour = now.hour
     ludt_str = now.strftime("%Y-%m-%d %H:%M:%S")
     
@@ -1876,7 +1883,7 @@ def run_mock_mode(config, force_run=False):
             "inverters": inverters
         })
         
-    config["last_update"] = datetime.now().isoformat()
+    config["last_update"] = get_local_now().isoformat()
     # Check and send Telegram alerts for favorite plants
     process_telegram_alerts(config, plants_results, active_alerts)
     config["last_data"] = plants_results
@@ -1935,7 +1942,7 @@ def main():
     
     plants = config.get("plants", [])
     
-    now = datetime.now()
+    now = get_local_now()
     current_hour = now.hour
     current_time_float = now.hour + now.minute / 60.0
     is_active_solar_hours = (7.5 <= current_time_float <= 17.5)
@@ -2396,7 +2403,7 @@ def main():
     process_telegram_alerts(config, plants_results, active_alerts)
     
     # Save the execution history/data to config.json
-    config["last_update"] = datetime.now().isoformat()
+    config["last_update"] = get_local_now().isoformat()
     config["last_data"] = plants_results
     if config_dirty:
         # Save updated configurations containingCached inverter SNs
