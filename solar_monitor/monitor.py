@@ -105,10 +105,30 @@ def process_telegram_alerts(config, plants_results, active_alerts):
         if not favorites:
             return
 
+        # Check if the previous run was outside active solar hours (07:30 to 17:30)
+        # or if it was on a previous day.
+        prev_run_was_outside = True
+        last_update_str = config.get("last_update")
+        if last_update_str:
+            try:
+                last_dt = datetime.fromisoformat(last_update_str)
+                last_time_float = last_dt.hour + last_dt.minute / 60.0
+                if last_dt.date() == now.date() and (7.5 <= last_time_float <= 17.5):
+                    prev_run_was_outside = False
+            except Exception as e:
+                print(f"Erro ao parsear last_update: {e}")
+
         # Build map of previous status
         prev_status_map = {}
         for prev_p in config.get("last_data", []):
-            prev_status_map[prev_p.get("name")] = prev_p.get("status_str", "normal")
+            name = prev_p.get("name")
+            status = prev_p.get("status_str", "normal")
+            # If the previous run was outside active solar hours (like the night run),
+            # we reset the baseline to "normal" so that failing to wake up in the morning
+            # triggers an alert instead of matching the previous night's offline state.
+            if prev_run_was_outside:
+                status = "normal"
+            prev_status_map[name] = status
             
         # Build map of current alerts for easy detail lookup
         alerts_by_plant = {}
@@ -136,29 +156,29 @@ def process_telegram_alerts(config, plants_results, active_alerts):
                 if prev_status == "normal" and curr_status != "normal":
                     # Alert triggered
                     detail = alerts_by_plant.get(name, "Anormalidade detectada.")
-                    msg = (f"⚠️ *Alerta ARSolar - Usina Favorita*\n\n"
-                           f"🌳 Usina: *{name}*\n"
-                           f"Status: {curr_emoji} *{curr_desc}*\n"
+                    msg = ("⚠️ *Alerta ARSolar - Usina Favorita*\n\n" +
+                           f"🌳 Usina: *{name}*\n" +
+                           f"Status: {curr_emoji} *{curr_desc}*\n" +
                            f"Detalhe: {detail}")
                     print(f"Enviando Telegram para {name} (Novo Alerta)...")
                     enviar_telegram(msg)
                     
                 elif prev_status != "normal" and curr_status == "normal":
                     # Alert resolved
-                    msg = (f"✅ *Alerta Resolvido - Usina Favorita*\n\n"
-                           f"🌳 Usina: *{name}*\n"
-                           f"Status: 🟢 *Normal*\n"
-                           f"A usina voltou a operar dentro dos parâmetros normais.")
+                    msg = ("✅ *Alerta Resolvido - Usina Favorita*\n\n" +
+                           f"🌳 Usina: *{name}*\n" +
+                           "Status: 🟢 *Normal*\n" +
+                           "A usina voltou a operar dentro dos parâmetros normais.")
                     print(f"Enviando Telegram para {name} (Alerta Resolvido)...")
                     enviar_telegram(msg)
                     
                 elif prev_status != "normal" and curr_status != "normal" and prev_status != curr_status:
                     # Alert changed type
                     detail = alerts_by_plant.get(name, "Estado alterado.")
-                    msg = (f"🔄 *Atualização de Alerta - Usina Favorita*\n\n"
-                           f"🌳 Usina: *{name}*\n"
-                           f"Status mudou de: {prev_emoji} {prev_desc}\n"
-                           f"Para: {curr_emoji} *{curr_desc}*\n"
+                    msg = ("🔄 *Atualização de Alerta - Usina Favorita*\n\n" +
+                           f"🌳 Usina: *{name}*\n" +
+                           f"Status mudou de: {prev_emoji} {prev_desc}\n" +
+                           f"Para: {curr_emoji} *{curr_desc}*\n" +
                            f"Detalhe: {detail}")
                     print(f"Enviando Telegram para {name} (Status do Alerta Alterado)...")
                     enviar_telegram(msg)
