@@ -38,5 +38,15 @@ def enviar_telegram(mensagem, token=None, chat_id=None):
         req = urllib.request.Request(url, data=data)
         with urllib.request.urlopen(req, timeout=10) as response:
             return True, "Mensagem enviada"
+    except urllib.error.HTTPError as e:
+        # If Markdown entity parsing failed, retry as plain text so notification is never dropped
+        try:
+            payload.pop("parse_mode", None)
+            data = urllib.parse.urlencode(payload).encode()
+            req = urllib.request.Request(url, data=data)
+            with urllib.request.urlopen(req, timeout=10) as response:
+                return True, "Mensagem enviada (modo texto)"
+        except Exception as e2:
+            return False, f"Erro HTTP {e.code}: {e2}"
     except Exception as e:
         return False, f"Erro: {e}"

@@ -39,7 +39,10 @@ def save_config(config_data):
         print(f"Erro ao salvar configurações atualizadas: {e}")
 
 def trigger_alert_popup(alert_messages):
-    """Launches a topmost Tkinter popup to alert the user."""
+    """Launches a topmost Tkinter popup to alert the user if interactive."""
+    if "--no-popup" in sys.argv or "--headless" in sys.argv or os.environ.get("NO_POPUP") == "1":
+        print(f"[ALERTA MONITOR]: {'; '.join(alert_messages)}")
+        return
     try:
         root = tk.Tk()
         root.withdraw()  # Hide main window
@@ -133,12 +136,15 @@ def process_telegram_alerts(config, plants_results, active_alerts):
         # Build map of current alerts for easy detail lookup
         alerts_by_plant = {}
         for alt in active_alerts:
-            alerts_by_plant[alt.get("plant_name")] = alt.get("message")
+            pname = alt.get("plant_name")
+            pmsg = alt.get("message")
+            if pname and pmsg:
+                alerts_by_plant.setdefault(pname, []).append(pmsg)
             
         for plant in plants_results:
             name = plant["name"]
             if name in favorites:
-                curr_status = plant["status_str"]
+                curr_status = plant.get("status_str", "normal")
                 prev_status = prev_status_map.get(name, "normal")
                 
                 # Mapping status to emoji and nice text
@@ -146,20 +152,23 @@ def process_telegram_alerts(config, plants_results, active_alerts):
                     "normal": ("🟢", "Normal"),
                     "low_production": ("🟠", "Produção Baixa"),
                     "offline": ("⚫", "Offline"),
-                    "error": ("🔴", "Erro")
+                    "error": ("🔴", "Erro"),
+                    "warning": ("⚠️", "Atenção")
                 }
                 
                 curr_emoji, curr_desc = status_details.get(curr_status, ("⚪", curr_status))
                 prev_emoji, prev_desc = status_details.get(prev_status, ("⚪", prev_status))
                 
+                plant_alerts = alerts_by_plant.get(name, [])
+                detail_text = "\n• ".join(plant_alerts) if plant_alerts else "Anormalidade detectada nos inversores ou telemetria."
+                
                 # Check for state transition
                 if prev_status == "normal" and curr_status != "normal":
                     # Alert triggered
-                    detail = alerts_by_plant.get(name, "Anormalidade detectada.")
                     msg = ("⚠️ *Alerta ARSolar - Usina Favorita*\n\n" +
                            f"🌳 Usina: *{name}*\n" +
                            f"Status: {curr_emoji} *{curr_desc}*\n" +
-                           f"Detalhe: {detail}")
+                           f"Detalhe: • {detail_text}")
                     print(f"Enviando Telegram para {name} (Novo Alerta)...")
                     enviar_telegram(msg)
                     
@@ -174,12 +183,11 @@ def process_telegram_alerts(config, plants_results, active_alerts):
                     
                 elif prev_status != "normal" and curr_status != "normal" and prev_status != curr_status:
                     # Alert changed type
-                    detail = alerts_by_plant.get(name, "Estado alterado.")
                     msg = ("🔄 *Atualização de Alerta - Usina Favorita*\n\n" +
                            f"🌳 Usina: *{name}*\n" +
                            f"Status mudou de: {prev_emoji} {prev_desc}\n" +
                            f"Para: {curr_emoji} *{curr_desc}*\n" +
-                           f"Detalhe: {detail}")
+                           f"Detalhe: • {detail_text}")
                     print(f"Enviando Telegram para {name} (Status do Alerta Alterado)...")
                     enviar_telegram(msg)
     except Exception as e:
@@ -192,6 +200,7 @@ def generate_dashboard(config_data, plants_data, active_alerts, api_error=None, 
     serialized_alerts  = json.dumps(active_alerts,  ensure_ascii=False)
     serialized_api_err = json.dumps(api_error,       ensure_ascii=False)
     serialized_weather = json.dumps(weather_data,    ensure_ascii=False)
+    serialized_favs    = json.dumps(config_data.get("favorites", []), ensure_ascii=False)
     last_update_str    = get_local_now().strftime("%d/%m/%Y %H:%M:%S")
 
     html_template = """<!DOCTYPE html>
@@ -866,6 +875,7 @@ const plantsData   = __PLANTS_DATA__;
 const alertsData   = __ALERTS_DATA__;
 const apiErrorData = __API_ERROR__;
 const weatherData  = __WEATHER_DATA__;
+const initialFavorites = __FAVORITES_DATA__;
 
 let overviewChartInst = null;
 let detailChartInst   = null;
@@ -876,10 +886,24 @@ const COLORS = ['#fbbf24','#10b981','#3b82f6','#a855f7','#ec4899','#06b6d4','#f9
 
 // ── helpers ────────────────────────────────────────────────────────────────
 function getFavs() {
-  try { return JSON.parse(localStorage.getItem('arsolar_favs') || '[]'); } catch(e){ return []; }
+  try {
+    const raw = localStorage.getItem('arsolar_favs');
+    if (raw) return JSON.parse(raw);
+    if (typeof initialFavorites !== 'undefined' && Array.isArray(initialFavorites) && initialFavorites.length > 0) {
+      return initialFavorites;
+    }
+    return [];
+  } catch(e){ return []; }
 }
 function saveFavs(arr) {
   localStorage.setItem('arsolar_favs', JSON.stringify(arr));
+  try {
+    fetch('/api/solar-monitor/favorites', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ favorites: arr })
+    }).catch(function(){});
+  } catch(e){}
 }
 function isFav(name) { return getFavs().includes(name); }
 function toggleFav(name, e) {
@@ -1658,13 +1682,20 @@ function renderDetailChart(plantName, dateStr, curvePoints, plantIdx, parameter=
     }
   });
 }
-// ── Refresh button handler (custom URL protocol arsolar://) ─────────────────
+// ── Refresh button handler ───────────────────────────────────────────────
 function triggerRefresh() {
   const btn  = document.getElementById('refresh-btn');
   const icon = document.getElementById('refresh-icon');
 
-  // Kick off the monitor via custom Windows protocol handler, passing current favorites
-  window.location.href = 'arsolar://refresh?favs=' + encodeURIComponent(getFavs().join(','));
+  // Sync favorites before trigger
+  saveFavs(getFavs());
+
+  if (window.location.protocol.startsWith('http')) {
+    fetch('/api/solar-monitor/refresh', { method: 'POST' }).catch(function(){});
+  } else {
+    // Local file fallback: Windows protocol handler
+    window.location.href = 'arsolar://refresh?favs=' + encodeURIComponent(getFavs().join(','));
+  }
 
   // Show loading feedback — monitor runs in background (~30-60s)
   btn.disabled = true;
@@ -1699,6 +1730,7 @@ function triggerRefresh() {
     html_content = html_content.replace("__ALERTS_DATA__",  serialized_alerts)
     html_content = html_content.replace("__API_ERROR__",    serialized_api_err)
     html_content = html_content.replace("__WEATHER_DATA__", serialized_weather)
+    html_content = html_content.replace("__FAVORITES_DATA__", serialized_favs)
 
     target_file = output_file if output_file else DASHBOARD_FILE
     try:
@@ -2075,12 +2107,13 @@ def main():
                             _adj_exp = _exp_so_far * _solar_factor
                             _adj_yield_pct = (plant_today / _adj_exp * 100.0) if _adj_exp > 0 else 100.0
                             _alert_threshold = 100.0 - threshold  # e.g. 15% → alert if <85%
-                            if _adj_yield_pct < _alert_threshold:
+                            # Flag low production if weather-adjusted yield is low OR if after 08:30 raw yield is below threshold
+                            if _adj_yield_pct < _alert_threshold or (current_time_float >= 8.5 and _exp_so_far >= 2.0 and _yield_pct < _alert_threshold):
                                 plant_status_str = "low_production"
                                 cloud_note = f" (dia nublado {_cloud:.0f}%, fator solar {_solar_factor:.0%})" if _cloud > 40 else ""
                                 msg = (f"Planta Solplanet '{name}' com geração acumulada abaixo do esperado "
-                                       f"({plant_today:.2f} kWh gerados / {_adj_exp:.2f} kWh esperados{cloud_note} "
-                                       f"= {_adj_yield_pct:.0f}% do esperado).")
+                                       f"({plant_today:.2f} kWh gerados / {_exp_so_far:.2f} kWh esperados{cloud_note} "
+                                       f"= {_yield_pct:.0f}% da meta do horário).")
                                 alert_messages.append(msg)
                                 active_alerts.append({
                                     "plant_name": name,
@@ -2145,6 +2178,39 @@ def main():
                             "capacity_kw": capacity,
                             "ludt": plant_ludt
                         }]
+                    
+                    # Individual inverter health & balance check
+                    if inverters_list and is_active_solar_hours and plant_status == 1:
+                        off_invs = [inv.get("sn", "N/A") for inv in inverters_list if inv.get("status") == 0 and inv.get("sn") != "N/A"]
+                        if off_invs:
+                            plant_status_str = "error" if len(off_invs) == len(inverters_list) else "low_production"
+                            inv_msg = f"Usina '{name}': Inversor(es) offline [{', '.join(off_invs)}]!"
+                            active_alerts.append({
+                                "plant_name": name,
+                                "type": "error" if len(off_invs) == len(inverters_list) else "low_production",
+                                "message": inv_msg
+                            })
+                            print(f"ALERTA: {inv_msg}")
+                        elif len(inverters_list) > 1 and current_time_float >= 9.5 and plant_status_str == "normal":
+                            inv_yields = []
+                            for inv in inverters_list:
+                                cap = float(inv.get("capacity_kw", 0)) or (capacity / len(inverters_list))
+                                tod = float(inv.get("today_kwh", 0))
+                                inv_yields.append((inv.get("sn", "N/A"), tod, cap, tod / cap if cap > 0 else 0))
+                            max_y = max(y[3] for y in inv_yields) if inv_yields else 0
+                            if max_y >= 1.0:
+                                for sn_i, tod_i, cap_i, y_i in inv_yields:
+                                    if y_i < max_y * 0.55:
+                                        plant_status_str = "low_production"
+                                        imb_msg = (f"Usina '{name}': Inversor {sn_i} gerou apenas {tod_i:.1f} kWh "
+                                                   f"(muito abaixo do inversor principal: {max(y[1] for y in inv_yields):.1f} kWh).")
+                                        active_alerts.append({
+                                            "plant_name": name,
+                                            "type": "low_production",
+                                            "message": imb_msg
+                                        })
+                                        print(f"ALERTA: {imb_msg}")
+                                        break
                         
                     # Manage rolling caching of historical curves
                     history_curves = cached_curves_map.get(apikey, {})
@@ -2311,12 +2377,13 @@ def main():
                         _adj_exp = _exp_so_far * _solar_factor
                         _adj_yield_pct = (plant_today / _adj_exp * 100.0) if _adj_exp > 0 else 100.0
                         _alert_threshold = 100.0 - threshold  # e.g. 15% → alert if <85%
-                        if _adj_yield_pct < _alert_threshold:
+                        # Flag low production if weather-adjusted yield is low OR if after 08:30 raw yield is below threshold
+                        if _adj_yield_pct < _alert_threshold or (current_time_float >= 8.5 and _exp_so_far >= 2.0 and _yield_pct < _alert_threshold):
                             plant_status_str = "low_production"
                             cloud_note = f" (dia nublado {_cloud:.0f}%, fator solar {_solar_factor:.0%})" if _cloud > 40 else ""
                             msg = (f"Planta Solis '{name}' com geração acumulada abaixo do esperado "
-                                   f"({plant_today:.2f} kWh gerados / {_adj_exp:.2f} kWh esperados{cloud_note} "
-                                   f"= {_adj_yield_pct:.0f}% do esperado).")
+                                   f"({plant_today:.2f} kWh gerados / {_exp_so_far:.2f} kWh esperados{cloud_note} "
+                                   f"= {_yield_pct:.0f}% da meta do horário).")
                             alert_messages.append(msg)
                             active_alerts.append({
                                 "plant_name": name,
@@ -2325,6 +2392,39 @@ def main():
                                             f"{_exp_so_far:.2f} kWh esperados ({_yield_pct:.0f}% do previsto)")
                             })
                             print(f"ALERTA: {msg}")
+
+                # Individual inverter health & balance check for Solis
+                if inverters_list and is_active_solar_hours and state == 1:
+                    off_invs = [inv.get("sn", "N/A") for inv in inverters_list if inv.get("status") == 0 and inv.get("sn") != "N/A"]
+                    if off_invs:
+                        plant_status_str = "error" if len(off_invs) == len(inverters_list) else "low_production"
+                        inv_msg = f"Usina '{name}': Inversor(es) Solis offline [{', '.join(off_invs)}]!"
+                        active_alerts.append({
+                            "plant_name": name,
+                            "type": "error" if len(off_invs) == len(inverters_list) else "low_production",
+                            "message": inv_msg
+                        })
+                        print(f"ALERTA: {inv_msg}")
+                    elif len(inverters_list) > 1 and current_time_float >= 9.5 and plant_status_str == "normal":
+                        inv_yields = []
+                        for inv in inverters_list:
+                            cap = float(inv.get("capacity_kw", 0)) or (capacity / len(inverters_list))
+                            tod = float(inv.get("today_kwh", 0))
+                            inv_yields.append((inv.get("sn", "N/A"), tod, cap, tod / cap if cap > 0 else 0))
+                        max_y = max(y[3] for y in inv_yields) if inv_yields else 0
+                        if max_y >= 1.0:
+                            for sn_i, tod_i, cap_i, y_i in inv_yields:
+                                if y_i < max_y * 0.55:
+                                    plant_status_str = "low_production"
+                                    imb_msg = (f"Usina '{name}': Inversor {sn_i} gerou apenas {tod_i:.1f} kWh "
+                                               f"(muito abaixo do inversor principal: {max(y[1] for y in inv_yields):.1f} kWh).")
+                                    active_alerts.append({
+                                        "plant_name": name,
+                                        "type": "low_production",
+                                        "message": imb_msg
+                                    })
+                                    print(f"ALERTA: {imb_msg}")
+                                    break
                         
                 # Offline alert
                 if state == 2:

@@ -2,11 +2,10 @@ name: Update Solar Dashboard
 
 on:
   schedule:
-    # 11:00 AM and 16:00 (4:00 PM) Brasilia time (UTC-3)
-    # Conversion:
-    # 11:00 BRT = 14:00 UTC
-    # 16:00 BRT = 19:00 UTC
-    - cron: '0 14,19 * * *'
+    # 2 times a day in Brasília time (UTC-3):
+    # 12:00 BRT = 15:00 UTC (meio-dia / pico solar)
+    # 18:00 BRT = 21:00 UTC (fechamento final do dia pós pôr do sol)
+    - cron: '0 15,21 * * *'
   workflow_dispatch:
     # Allows manual trigger from the GitHub Actions UI tab
 
